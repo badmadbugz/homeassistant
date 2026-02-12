@@ -1,0 +1,26 @@
+# Добавить в configuration.yaml в секцию input_number:
+# Либо создать хелперы через Настройки → Хелперы → Число
+
+kormushka_refill_grams:
+  name: "Кормушка: грамм при засыпке"
+  min: 0
+  max: 2000
+  step: 10
+  unit_of_measurement: "g"
+  icon: mdi:scale
+
+kormushka_dispensed_since_refill:
+  name: "Кормушка: выдано с последней засыпки"
+  min: 0
+  max: 10000
+  step: 1
+  unit_of_measurement: "g"
+  icon: mdi:counter
+
+kormushka_saved_daily_weight:
+  name: "Кормушка: сохранённый вес за день"
+  min: 0
+  max: 500
+  step: 1
+  unit_of_measurement: "g"
+  icon: mdi:content-save

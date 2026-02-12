@@ -1,0 +1,20 @@
+# Карточки для дашборда Lovelace
+
+# --- Управление (грамм при засыпке, остаток, кнопка Подсыпал) ---
+type: entities
+entities:
+  - entity: input_number.kormushka_refill_grams
+    name: Грамм при засыпке
+  - entity: sensor.kormushka_ostatok_gramm
+    name: Остаток
+  - entity: script.kormushka_podsypal
+    name: Подсыпал
+title: Кормушка
+
+# --- График по дням (остаток, ~30 дней) ---
+type: history-graph
+entities:
+  - entity: sensor.kormushka_ostatok_gramm
+    name: Остаток корма
+hours_to_show: 720
+title: Кормушка — остаток по дням

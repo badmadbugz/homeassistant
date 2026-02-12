@@ -1,0 +1,110 @@
+# Пакет «Уровень кормушки по статистике» (Aqara C1)
+# Скопировать в config/packages/feeder_level.yaml в HA.
+# В configuration.yaml должна быть строка: homeassistant: packages: !include_dir_named packages
+# После копирования — перезагрузка HA. Карточку графика добавить вручную.
+
+input_number:
+  kormushka_refill_grams:
+    name: "Кормушка: грамм при засыпке"
+    min: 0
+    max: 2000
+    step: 10
+    unit_of_measurement: "g"
+    icon: mdi:scale
+
+  kormushka_dispensed_since_refill:
+    name: "Кормушка: выдано с последней засыпки"
+    min: 0
+    max: 10000
+    step: 1
+    unit_of_measurement: "g"
+    icon: mdi:counter
+
+  kormushka_saved_daily_weight:
+    name: "Кормушка: сохранённый вес за день"
+    min: 0
+    max: 500
+    step: 1
+    unit_of_measurement: "g"
+    icon: mdi:content-save
+
+template:
+  - sensor:
+      - name: "Кормушка остаток грамм"
+        unique_id: kormushka_remaining_grams
+        unit_of_measurement: "g"
+        state_class: measurement
+        device_class: weight
+        state: >
+          {% set refill = states('input_number.kormushka_refill_grams') | float(0) %}
+          {% set disp = states('input_number.kormushka_dispensed_since_refill') | float(0) %}
+          {{ (refill - disp) | round(0) }}
+        availability: "{{ states('input_number.kormushka_refill_grams') not in ['unavailable', 'unknown'] }}"
+
+automation:
+  - id: kormushka_save_daily_weight
+    alias: "Кормушка: сохранить вес за день"
+    description: "В 23:59 копируем weight_per_day в сохранённый хелпер"
+    trigger:
+      - platform: time
+        at: "23:59:00"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.kormushka_saved_daily_weight
+        data:
+          value: "{{ states('sensor.kormushka_weight_per_day') | float(0) }}"
+    mode: single
+
+  - id: kormushka_accumulate_dispensed
+    alias: "Кормушка: накопить выдано за день"
+    description: "В 00:01 прибавляем сохранённый вес к выдано с последней засыпки"
+    trigger:
+      - platform: time
+        at: "00:01:00"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.kormushka_dispensed_since_refill
+        data:
+          value: "{{ states('input_number.kormushka_dispensed_since_refill') | float(0) + states('input_number.kormushka_saved_daily_weight') | float(0) }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.kormushka_saved_daily_weight
+        data:
+          value: 0
+    mode: single
+
+  - id: kormushka_low_food_notify
+    alias: "Кормушка: пора подсыпать"
+    description: "Остаток корма ниже 50 g"
+    trigger:
+      - platform: numeric_state
+        entity_id:
+          - sensor.kormushka_ostatok_gramm
+        below: 50
+    condition:
+      - condition: template
+        value_template: "{{ states('sensor.kormushka_ostatok_gramm') not in ['unavailable', 'unknown'] }}"
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "Кормушка"
+          message: "Остаток корма меньше 50 г — пора подсыпать."
+    mode: single
+
+script:
+  kormushka_podsypal:
+    alias: "Кормушка: подсыпал"
+    sequence:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.kormushka_dispensed_since_refill
+        data:
+          value: 0
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.kormushka_saved_daily_weight
+        data:
+          value: 0
+    mode: single

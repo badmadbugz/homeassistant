@@ -1,0 +1,53 @@
+# Фрагменты для automations.yaml или вставка через Автоматизации → Редактировать в YAML
+# Подставь свой entity_id сенсора остатка, если он не sensor.kormushka_ostatok_gramm
+
+- id: kormushka_save_daily_weight
+  alias: "Кормушка: сохранить вес за день"
+  description: "В 23:59 копируем weight_per_day в сохранённый хелпер"
+  trigger:
+    - platform: time
+      at: "23:59:00"
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: "{{ states('sensor.kormushka_weight_per_day') | float(0) }}"
+  mode: single
+
+- id: kormushka_accumulate_dispensed
+  alias: "Кормушка: накопить выдано за день"
+  description: "В 00:01 прибавляем сохранённый вес к выдано с последней засыпки"
+  trigger:
+    - platform: time
+      at: "00:01:00"
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_dispensed_since_refill
+      data:
+        value: "{{ states('input_number.kormushka_dispensed_since_refill') | float(0) + states('input_number.kormushka_saved_daily_weight') | float(0) }}"
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: 0
+  mode: single
+
+- id: kormushka_low_food_notify
+  alias: "Кормушка: пора подсыпать"
+  description: "Остаток корма ниже 50 g"
+  trigger:
+    - platform: numeric_state
+      entity_id:
+        - sensor.kormushka_ostatok_gramm
+      below: 50
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.kormushka_ostatok_gramm') not in ['unavailable', 'unknown'] }}"
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "Кормушка"
+        message: "Остаток корма меньше 50 г — пора подсыпать."
+  mode: single

@@ -1,0 +1,12 @@
+# Добавить в configuration.yaml в секцию template: → sensor:
+
+- name: "Кормушка остаток грамм"
+  unique_id: kormushka_remaining_grams
+  unit_of_measurement: "g"
+  state_class: measurement
+  device_class: weight
+  state: >
+    {% set refill = states('input_number.kormushka_refill_grams') | float(0) %}
+    {% set disp = states('input_number.kormushka_dispensed_since_refill') | float(0) %}
+    {{ (refill - disp) | round(0) }}
+  availability: "{{ states('input_number.kormushka_refill_grams') not in ['unavailable', 'unknown'] }}"

@@ -1,0 +1,226 @@
+# Кормушка Aqara C1: расчёт остатка по статистике и график по месяцам
+
+Оценка уровня корма **без доп. датчиков**: используем `weight_per_day` и ручной ввод «сколько насыпал». Остаток = засыпка − накопленная выдача. График по месяцам: максимум после засыпки, затем спад.
+
+---
+
+## Сущности кормушки Aqara C1 (уже есть)
+
+Кормушка подключается через Zigbee2MQTT (модель ZNCWWSQ01LM) и создаёт следующие сущности.
+
+### Используемые для расчёта остатка
+
+| entity_id | Назначение |
+|-----------|------------|
+| `sensor.kormushka_weight_per_day` | **Грамм выдано за текущий день** — единственная сущность кормушки, с которой работает схема остатка. Обнуляется в полночь. |
+
+### Статистика и настройка порций
+
+| entity_id | Назначение |
+|-----------|------------|
+| `number.kormushka_portion_weight` | Грамм на одну порцию (1–20 g, по умолчанию 7). Определяет, сколько грамм выдаёт кормушка за одну порцию. |
+| `number.kormushka_serving_size` | Сколько порций выдать за одно кормление (1–10). |
+| `sensor.kormushka_portions_per_day` | Порций выдано за день (счётчик). |
+
+### Управление и режимы
+
+| entity_id | Назначение |
+|-----------|------------|
+| `select.kormushka_feed` | Ручная выдача корма: выбрать `START` — кормушка выдаст одну порцию. |
+| `select.kormushka_mode` | Режим: `schedule` (по расписанию) или `manual` (только вручную). |
+| `sensor.kormushka_schedule` | Текущее расписание кормлений (дни, время, размер порции). |
+| `sensor.kormushka_feeding_source` | Источник последней выдачи: schedule, manual или remote. |
+| `sensor.kormushka_feeding_size` | Размер последней выдачи (в порциях). |
+
+### Прочее
+
+| entity_id | Назначение |
+|-----------|------------|
+| `binary_sensor.kormushka_error` | Ошибка кормушки (застревание, пустой бункер и т.п.). |
+| `switch.kormushka_led_indicator` | Отключить LED ночью (21:00–09:00). |
+| `switch.kormushka_child_lock` | Блокировка физических кнопок на кормушке. |
+| `update.kormushka` | Обновление прошивки (Zigbee2MQTT OTA). |
+
+Для расчёта остатка по статистике используется только `sensor.kormushka_weight_per_day`. Остальные сущности — для настройки кормушки и учёта порций.
+
+---
+
+## 1. Хелперы (Input Number)
+
+Создать в **Настройки → Устройства и службы → Хелперы → Создать хелпер → Число** (или добавить YAML в `configuration.yaml` в секцию `input_number:`).
+
+| Имя (friendly_name) | entity_id | min | max | Единица | Начальное | Описание |
+|---------------------|-----------|---|-----|---------|-----------|----------|
+| Кормушка: грамм при засыпке | `input_number.kormushka_refill_grams` | 0 | 2000 | g | 500 | Сколько грамм насыпано при последней дозахватке. Задаётся вручную после каждой засыпки (или с карточки дашборда). Используется в формуле остатка: остаток = засыпка − выдано. |
+| Кормушка: выдано с последней засыпки | `input_number.kormushka_dispensed_since_refill` | 0 | 10000 | g | 0 | Накопленное количество грамм, выданных кормушкой с момента последней засыпки. Обновляется автоматически: в 00:01 к нему прибавляется вчерашний `weight_per_day`. Обнуляется скриптом «Подсыпал» после дозахватки. |
+| Кормушка: сохранённый вес за день | `input_number.kormushka_saved_daily_weight` | 0 | 500 | g | 0 | **Служебный** буфер. В 23:59 в него копируется `sensor.kormushka_weight_per_day`. В 00:01 это значение прибавляется к «выдано с последней засыпки», после чего буфер обнуляется. Не трогать вручную. |
+
+> **Важно:** у хелперов entity_id должны содержать только латиницу (например `kormushka_refill_grams`). Кириллица в ключах YAML приводит к ошибке конфигурации.
+
+---
+
+## 2. Template-сенсор остатка
+
+Добавить в `configuration.yaml` в секцию `template:` (или **Настройки → Устройства и службы → Template → Добавить → Сенсор**):
+
+```yaml
+- sensor:
+    - name: "Кормушка остаток грамм"
+      unique_id: kormushka_remaining_grams
+      unit_of_measurement: "g"
+      state_class: measurement
+      device_class: weight
+      state: >
+        {% set refill = states('input_number.kormushka_refill_grams') | float(0) %}
+        {% set disp = states('input_number.kormushka_dispensed_since_refill') | float(0) %}
+        {{ (refill - disp) | round(0) }}
+      availability: "{{ states('input_number.kormushka_refill_grams') not in ['unavailable', 'unknown'] }}"
+```
+
+После добавления: **Перезагрузка → Шаблоны** (или перезагрузка HA).
+
+entity_id будет: `sensor.kormushka_ostatok_gramm` (или как HA сгенерирует по `name`).
+
+---
+
+## 3. Автоматизации
+
+### 3.1. Ежедневное накопление (перенос «вчера» в выдано)
+
+В **23:59** сохраняем текущий `weight_per_day` в `kormushka_saved_daily_weight`.  
+В **00:01** прибавляем сохранённое значение к `kormushka_dispensed_since_refill` и обнуляем сохранённое.
+
+Добавить в `automations.yaml` или создать через **Автоматизации → Создать → Редактировать в YAML**:
+
+```yaml
+- id: kormushka_save_daily_weight
+  alias: "Кормушка: сохранить вес за день"
+  description: "В 23:59 копируем weight_per_day в сохранённый хелпер"
+  trigger:
+    - platform: time
+      at: "23:59:00"
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: "{{ states('sensor.kormushka_weight_per_day') | float(0) }}"
+  mode: single
+
+- id: kormushka_accumulate_dispensed
+  alias: "Кормушка: накопить выдано за день"
+  description: "В 00:01 прибавляем сохранённый вес за день к выдано с последней засыпки"
+  trigger:
+    - platform: time
+      at: "00:01:00"
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_dispensed_since_refill
+      data:
+        value: "{{ states('input_number.kormushka_dispensed_since_refill') | float(0) + states('input_number.kormushka_saved_daily_weight') | float(0) }}"
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: 0
+  mode: single
+```
+
+### 3.2. Уведомление «пора подсыпать»
+
+Когда остаток ниже порога (например 50 g) — уведомление. Порог можно вынести в хелпер или заменить число в условии.
+
+```yaml
+- id: kormushka_low_food_notify
+  alias: "Кормушка: пора подсыпать"
+  description: "Остаток корма ниже 50 g"
+  trigger:
+    - platform: numeric_state
+      entity_id:
+        - sensor.kormushka_ostatok_gramm
+      below: 50
+  condition:
+    - condition: template
+      value_template: "{{ states('sensor.kormushka_ostatok_gramm') not in ['unavailable', 'unknown'] }}"
+  action:
+    - service: persistent_notification.create
+      data:
+        title: "Кормушка"
+        message: "Остаток корма меньше 50 г — пора подсыпать."
+  mode: single
+```
+
+Если entity_id сенсора остатка другой — заменить в `entity_id` и в `value_template`.
+
+---
+
+## 4. Скрипт «Подсыпал»
+
+При нажатии: обнуляем «выдано с последней засыпки» и при желании задаём новое значение «грамм при засыпке».
+
+Добавить в `scripts.yaml` или через **Сценарии → Создать → Редактировать в YAML**:
+
+```yaml
+kormushka_podsypal:
+  alias: "Кормушка: подсыпал"
+  sequence:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_dispensed_since_refill
+      data:
+        value: 0
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: 0
+  mode: single
+```
+
+На дашборде можно повесить кнопку: **Вызов сценария** → `script.kormushka_podsypal`.
+
+---
+
+## 5. Карточки на дашборд
+
+### 5.1. Управление: засыпка, остаток, кнопка «Подсыпал»
+
+```yaml
+type: entities
+entities:
+  - entity: input_number.kormushka_refill_grams
+    name: Грамм при засыпке
+  - entity: sensor.kormushka_ostatok_gramm
+    name: Остаток
+  - entity: script.kormushka_podsypal
+    name: Подсыпал
+title: Кормушка
+```
+
+### 5.2. График по месяцам
+
+```yaml
+type: history-graph
+entities:
+  - entity: sensor.kormushka_ostatok_gramm
+    name: Остаток корма
+hours_to_show: 720
+title: Кормушка — остаток по дням
+```
+
+---
+
+## 6. Порядок внедрения
+
+1. Создать три хелпера (Input Number).
+2. Добавить template-сенсор остатка, перезагрузить шаблоны.
+3. Добавить автоматизации и авто «пора подсыпать».
+4. Добавить сценарий «Подсыпал».
+5. Задать начальное значение «грамм при засыпке», добавить карточки на дашборд.
+
+---
+
+## 7. Конфиги и пакет
+
+В папке `config/feeder_level/` — готовые YAML-файлы (хелперы, сенсор, автоматизации, скрипт, blueprints, пакет). Можно скопировать в HA или использовать пакет для установки «всё сразу».

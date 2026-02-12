@@ -1,0 +1,38 @@
+# Blueprint: в 00:01 прибавить сохранённый вес к «выдано с засыпки» и обнулить сохранённый
+# Копировать в config/blueprints/automation/feeder_level/ в HA
+
+blueprint:
+  name: Кормушка — накопить выдано за день
+  description: |
+    В 00:01 прибавляет «сохранённый вес за день» к «выдано с последней засыпки» и обнуляет сохранённый.
+    Вторая часть цепочки накопления остатка корма.
+  domain: automation
+  input:
+    dispensed_helper:
+      name: Хелпер «выдано с последней засыпки»
+      selector:
+        entity:
+          domain: input_number
+    saved_weight_helper:
+      name: Хелпер «сохранённый вес за день»
+      selector:
+        entity:
+          domain: input_number
+
+trigger:
+  - platform: time
+    at: "00:01:00"
+
+action:
+  - service: input_number.set_value
+    target:
+      entity_id: !input dispensed_helper
+    data:
+      value: "{{ states(!input dispensed_helper) | float(0) + states(!input saved_weight_helper) | float(0) }}"
+  - service: input_number.set_value
+    target:
+      entity_id: !input saved_weight_helper
+    data:
+      value: 0
+
+mode: single

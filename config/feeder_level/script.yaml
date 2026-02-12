@@ -1,0 +1,16 @@
+# Добавить в scripts.yaml или Сценарии → Редактировать в YAML
+
+kormushka_podsypal:
+  alias: "Кормушка: подсыпал"
+  sequence:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_dispensed_since_refill
+      data:
+        value: 0
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_saved_daily_weight
+      data:
+        value: 0
+  mode: single

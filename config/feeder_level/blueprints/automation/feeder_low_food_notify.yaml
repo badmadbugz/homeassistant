@@ -1,0 +1,39 @@
+# Blueprint: уведомление «пора подсыпать» при низком остатке корма
+# Копировать в config/blueprints/automation/feeder_level/ в HA
+
+blueprint:
+  name: Кормушка — пора подсыпать
+  description: |
+    Уведомление, когда сенсор остатка корма (грамм) опускается ниже порога.
+    Требуются заранее созданные хелперы и template-сенсор остатка.
+  domain: automation
+  input:
+    remaining_sensor:
+      name: Сенсор остатка корма (грамм)
+      description: Template-сенсор «остаток в граммах»
+      selector:
+        entity:
+          domain: sensor
+    threshold_grams:
+      name: Порог (грамм)
+      description: Ниже этого значения — уведомление
+      default: 50
+      selector:
+        number:
+          min: 10
+          max: 500
+          step: 10
+          unit_of_measurement: "g"
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input remaining_sensor
+    below: !input threshold_grams
+
+action:
+  - service: persistent_notification.create
+    data:
+      title: "Кормушка"
+      message: "Остаток корма ниже порога — пора подсыпать."
+
+mode: single
