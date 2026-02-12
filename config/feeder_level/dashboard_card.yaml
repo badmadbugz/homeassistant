@@ -1,10 +1,10 @@
 # Карточки для дашборда Lovelace
 
-# --- Управление (грамм при засыпке, остаток, кнопка Подсыпал) ---
+# --- Управление (граммов при засыпке, остаток, кнопка Подсыпал) ---
 type: entities
 entities:
   - entity: input_number.kormushka_refill_grams
-    name: Грамм при засыпке
+    name: Граммов при засыпке
   - entity: sensor.kormushka_ostatok_gramm
     name: Остаток
   - entity: script.kormushka_podsypal

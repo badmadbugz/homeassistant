@@ -1,6 +1,6 @@
 # Добавить в configuration.yaml в секцию template: → sensor:
 
-- name: "Кормушка остаток грамм"
+- name: "Кормушка остаток граммов"
   unique_id: kormushka_remaining_grams
   unit_of_measurement: "g"
   state_class: measurement
