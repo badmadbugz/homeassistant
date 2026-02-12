@@ -24,3 +24,19 @@ kormushka_saved_daily_weight:
   step: 1
   unit_of_measurement: "g"
   icon: mdi:content-save
+
+kormushka_total_month:
+  name: "Кормушка: съедено за месяц"
+  min: 0
+  max: 100000
+  step: 1
+  unit_of_measurement: "g"
+  icon: mdi:calendar-month
+
+kormushka_total_year:
+  name: "Кормушка: съедено за год"
+  min: 0
+  max: 500000
+  step: 1
+  unit_of_measurement: "g"
+  icon: mdi:calendar

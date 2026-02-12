@@ -7,6 +7,10 @@ entities:
     name: Граммов при засыпке
   - entity: sensor.kormushka_ostatok_gramm
     name: Остаток
+  - entity: input_number.kormushka_total_month
+    name: Съедено за месяц
+  - entity: input_number.kormushka_total_year
+    name: Съедено за год
   - entity: script.kormushka_podsypal
     name: Подсыпал
 title: Кормушка

@@ -10,4 +10,6 @@
 | `script.yaml` | `scripts.yaml` или Сценарии → Редактировать в YAML |
 | `dashboard_card.yaml` | Дашборд → Редактировать → Добавить карточку (вставить YAML) |
 
+Дополнительно: хелперы `kormushka_total_month` и `kormushka_total_year` — статистика «съедено за месяц/год». Добавить в `input_number.yaml`, авто сброса — в `automations.yaml`.
+
 После добавления template и input_number — перезагрузка (Шаблоны или полная). Проверить entity_id сенсора остатка и при необходимости подставить в automations и в карточку.

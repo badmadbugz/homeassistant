@@ -17,11 +17,21 @@
 
 - id: kormushka_accumulate_dispensed
   alias: "Кормушка: накопить выдано за день"
-  description: "В 00:01 прибавляем сохранённый вес к выдано с последней засыпки"
+  description: "В 00:01 прибавляем сохранённый вес к выдано, к месячной и годовой статистике"
   trigger:
     - platform: time
       at: "00:01:00"
   action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_total_month
+      data:
+        value: "{{ states('input_number.kormushka_total_month') | float(0) + states('input_number.kormushka_saved_daily_weight') | float(0) }}"
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_total_year
+      data:
+        value: "{{ states('input_number.kormushka_total_year') | float(0) + states('input_number.kormushka_saved_daily_weight') | float(0) }}"
     - service: input_number.set_value
       target:
         entity_id: input_number.kormushka_dispensed_since_refill
@@ -32,6 +42,33 @@
         entity_id: input_number.kormushka_saved_daily_weight
       data:
         value: 0
+  mode: single
+
+- id: kormushka_reset_monthly_year_stats
+  alias: "Кормушка: сброс статистики месяц/год"
+  description: "1-го числа сбрасываем месяц, 1 января — год"
+  trigger:
+    - platform: time
+      at: "00:02:00"
+  condition:
+    - condition: template
+      value_template: "{{ now().day == 1 }}"
+  action:
+    - service: input_number.set_value
+      target:
+        entity_id: input_number.kormushka_total_month
+      data:
+        value: 0
+    - choose:
+        - conditions:
+            - condition: template
+              value_template: "{{ now().month == 1 }}"
+          sequence:
+            - service: input_number.set_value
+              target:
+                entity_id: input_number.kormushka_total_year
+              data:
+                value: 0
   mode: single
 
 - id: kormushka_low_food_notify
