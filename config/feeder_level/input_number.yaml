@@ -4,7 +4,7 @@
 kormushka_refill_grams:
   name: "Кормушка: граммов при засыпке"
   min: 0
-  max: 2000
+  max: 5000
   step: 10
   unit_of_measurement: "g"
   icon: mdi:scale

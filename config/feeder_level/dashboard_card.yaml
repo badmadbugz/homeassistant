@@ -1,4 +1,16 @@
 # Карточки для дашборда Lovelace
+# Использовать в vertical-stack или добавлять по одной на дашборд
+
+# --- Сводка: осталось / съедено / итого ---
+type: glance
+title: Кормушка
+entities:
+  - entity: sensor.kormushka_ostatok_gramm
+    name: Осталось
+  - entity: input_number.kormushka_dispensed_since_refill
+    name: Съедено
+  - entity: input_number.kormushka_refill_grams
+    name: Итого
 
 # --- Управление (граммов при засыпке, остаток, кнопка Подсыпал) ---
 type: entities
