@@ -73,12 +73,12 @@
 
 - id: kormushka_low_food_notify
   alias: "Кормушка: пора подсыпать"
-  description: "Остаток корма ниже 50 g"
+  description: "Остаток корма ниже 100 g"
   trigger:
     - platform: numeric_state
       entity_id:
         - sensor.kormushka_ostatok_gramm
-      below: 50
+      below: 100
   condition:
     - condition: template
       value_template: "{{ states('sensor.kormushka_ostatok_gramm') not in ['unavailable', 'unknown'] }}"
@@ -86,5 +86,5 @@
     - service: persistent_notification.create
       data:
         title: "Кормушка"
-        message: "Остаток корма меньше 50 г — пора подсыпать."
+        message: "Остаток корма меньше 100 г — пора подсыпать."
   mode: single
